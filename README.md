@@ -1,5 +1,3 @@
-# Docker image for checkmk-agent
+# Check_MK Agent for Whole Tale
 
-Basic Docker image with checkmk-agent for use with Kubernetes.
-Very basic Kubernetes pod/node checks based on check_kube.
-# check_mk
+Custom Docker image and scripts for monitoring the Whole Tale system and services.
