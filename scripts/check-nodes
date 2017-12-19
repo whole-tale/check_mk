@@ -1,0 +1,27 @@
+#!/usr/bin/python3
+import docker
+
+#
+# Check_MK script to confirm all nodes are in ready state
+#
+
+client = docker.from_env()
+
+try:
+   attrs = client.swarm.attrs
+   # If this node has an ID, it is part of a Swarm
+   if attrs.get("ID"):
+      nodes = client.nodes.list()
+      ready = 0
+      for node in nodes:
+         status = node.attrs.get("Status")
+         state = status.get("State")
+         if (state == "ready"):
+             ready += 1
+
+      if len(nodes) == ready:
+         print ("0 Swarm nodes=%d|ready=%d OK - all nodes ready" % (len(nodes), ready))
+      else:
+         print ("2 Swarm nodes=%d|ready=%d CRITICAL - nodes not in ready state" % (len(nodes), ready))
+except docker.errors.NotFound:
+    print ("2 Swarm nodes=0 CRITICAL - error getting Swarm status:")

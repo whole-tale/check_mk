@@ -1,0 +1,71 @@
+#!/usr/bin/python3
+import sys
+import os
+import docker
+
+client = docker.from_env()
+
+
+#
+# Check_MK script to check that all expected services are running
+#
+
+
+# Optional stack namespace
+namespace = os.environ.get("NAMESPACE", "")
+
+# Service name, expected running tasks
+services = {
+   "dashboard" : 1,
+   "girder"    : 1,
+   "mongo1"    : 1,
+   "mongo2"    : 1,
+   "mongo3"    : 1,
+   "redis"     : 1,
+   "traefik"   : 1
+}
+
+def check_service(ns, name):
+   svc_name = name
+   if ns:
+      svc_name = "%s_%s" % (ns, name)
+
+   running = 0
+   try:
+     service = client.services.get(svc_name)
+     tasks = service.tasks()
+     for task in tasks:
+         status = task.get("Status")
+         state = status.get("State")
+         if (state == "running"):
+            running+=1
+   except docker.errors.NotFound:
+      print ("Service not found")
+
+   return running
+
+
+
+def main(argv):
+
+   swarm_attrs = client.swarm.attrs
+
+   # Only run this check on swarm master
+   if not swarm_attrs.get("ID"):
+      sys.exit(0)
+   
+   expected = 0
+   running = 0
+   for service in services:
+      running += check_service(namespace, service)
+      expected += services.get(service)
+
+   if running == expected:
+      print ("0 WT_Services expected=%d|running=%d OK - All services running" % (expected, running))
+   elif running > expected:
+      print ("1 WT_Services expected=%d|running=%d WARNING - More services found than expected" % (expected, running))
+   else:
+      print ("2 WT_Services expected=%d|running=%d CRITICAL - Services not running" % (expected, running))
+
+if __name__ == "__main__":
+    main(sys.argv)

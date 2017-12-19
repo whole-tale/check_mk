@@ -1,0 +1,19 @@
+#!/usr/bin/python3
+import docker
+
+#
+# Check_MK script to confirm container named "celery_worker" is running 
+# on this node.
+#
+client = docker.from_env()
+
+try:
+   container = client.containers.get("celery_worker")
+   #  running, or exited
+   status = container.status
+   if (status == "running"):
+       print ("0 Celery status=%s OK - container running" % status)
+   else:
+       print ("2 Celery status=%s CRITICAL - container not running" % status)
+except docker.errors.NotFound:
+   print ("2 Celery status=missing CRITICAL - container not found")
