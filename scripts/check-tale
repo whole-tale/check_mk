@@ -1,0 +1,64 @@
+import argparse
+import requests
+
+
+# Check_MK script to create and delete an instance of the specified tale
+def main():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-s", "--server", required=True, help="Server URL")
+    parser.add_argument("-k", "--key", required=True, help="API key")
+    parser.add_argument("-t", "--tale", required=True, help="Tale ID")
+
+    args = parser.parse_args()
+
+    apiUrl = "%s/api/v1" % args.server
+
+    token = get_token(apiUrl, args.key)
+    if token is not None:
+        create_instance(apiUrl, token, args.tale)
+
+
+# Get a token for the API key
+def get_token(apiUrl, key):
+    try:
+        tokenUrl = "%s/api_key/token?key=%s" % (apiUrl, key)
+        r = requests.post(tokenUrl, headers={'Accept': 'application/json', 'Content-Type': 'application/json'})
+        if r.status_code == requests.codes.ok:
+            body = r.json()
+            return body['authToken']['token']
+        else:
+            print("2 Tale status=%s CRITICAL - error getting token" % r.status_code)
+
+    except Exception as e:
+        print("2 Tale status=failed CRITICAL - unexpected exception getting token")
+
+    return None
+
+
+# Create and delete an instance of the specified tale
+def create_instance(apiUrl, token, tale):
+
+    try:
+        postInstanceUrl = "%s/instance?taleId=%s" % (apiUrl, tale)
+        r = requests.post(postInstanceUrl, headers={'Girder-Token': token, 'Content-Type': 'application/json',
+                                                    'Accept': 'application/json'})
+        if r.status_code == requests.codes.ok:
+            body = r.json()
+            instanceId = body['_id']
+
+            deleteInstanceUrl = "%s/instance/%s" % (apiUrl, instanceId)
+            r = requests.delete(deleteInstanceUrl, headers={'Girder-Token': token, 'Accept': 'application/json'})
+            if r.status_code == requests.codes.ok:
+                print("0 Tale status=%s OK - tale successfully created/deleted")
+            else:
+                print("2 Tale status=%s CRITICAL - error deleting tale" % r.status_code)
+        else:
+            print("2 Tale status=%s CRITICAL - error creating tale" % r.status_code)
+
+    except Exception as e:
+        print("2 Tale status=failed CRITICAL - unexpected exception creating tale")
+
+if __name__ == "__main__":
+    main()
+
