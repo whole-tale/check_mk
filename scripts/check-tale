@@ -1,18 +1,31 @@
 import argparse
+import docker
 import requests
+import os
+import sys
 
 
 # Check_MK script to create and delete an instance of the specified tale
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-s", "--server", required=True, help="Server URL")
-    parser.add_argument("-k", "--key", required=True, help="API key")
-    parser.add_argument("-t", "--tale", required=True, help="Tale ID")
-
+    # Allow arguments via command line and environment
+    parser.add_argument("-s", "--server", required=False, help="Server URL", default=os.environ.get('GIRDER_URL', None))
+    parser.add_argument("-k", "--key", required=False, help="API key", default=os.environ.get('GIRDER_API_KEY', None))
+    parser.add_argument("-t", "--tale", required=False, help="Tale ID", default=os.environ.get('TALE_ID', None))
+    parser.add_argument("-d", "--dev", required=False, help="Development mode", default=False)
     args = parser.parse_args()
 
     apiUrl = "%s/api/v1" % args.server
+
+    # Unless in dev mode, only run this check on the Swarm master
+    if args.dev:
+       print("server=%s key=%s tale=%s" % (args.server, args.key, args.tale))
+    else:
+       client = docker.from_env()
+       attrs = client.swarm.attrs
+       if not attrs.get("ID"):
+           sys.exit(0)
 
     token = get_token(apiUrl, args.key)
     if token is not None:
