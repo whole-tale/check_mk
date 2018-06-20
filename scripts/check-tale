@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import argparse
 import docker
 import requests
@@ -63,7 +64,7 @@ def create_instance(apiUrl, token, tale):
             deleteInstanceUrl = "%s/instance/%s" % (apiUrl, instanceId)
             r = requests.delete(deleteInstanceUrl, headers={'Girder-Token': token, 'Accept': 'application/json'})
             if r.status_code == requests.codes.ok:
-                print("0 Tale status=%s OK - tale successfully created/deleted")
+                print("0 Tale status=%s OK - tale successfully created/deleted" % r.status_code )
             else:
                 print("2 Tale status=%s CRITICAL - error deleting tale" % r.status_code)
         else:
