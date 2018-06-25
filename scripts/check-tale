@@ -4,10 +4,13 @@ import docker
 import requests
 import os
 import sys
+import logging
 
 
 # Check_MK script to create and delete an instance of the specified tale
 def main():
+
+    logging.basicConfig(filename='check-tale.log',level=logging.DEBUG)
     parser = argparse.ArgumentParser()
 
     # Allow arguments via command line and environment
@@ -43,9 +46,11 @@ def get_token(apiUrl, key):
             return body['authToken']['token']
         else:
             print("2 Tale status=%s CRITICAL - error getting token" % r.status_code)
+            logging.error("Error getting token " % r.content)
 
     except Exception as e:
         print("2 Tale status=failed CRITICAL - unexpected exception getting token")
+        logging.exception("Exception getting token")
 
     return None
 
@@ -67,11 +72,14 @@ def create_instance(apiUrl, token, tale):
                 print("0 Tale status=%s OK - tale successfully created/deleted" % r.status_code )
             else:
                 print("2 Tale status=%s CRITICAL - error deleting tale" % r.status_code)
+                logging.error("Error deleting tale " % r.content)
         else:
             print("2 Tale status=%s CRITICAL - error creating tale" % r.status_code)
+            logging.error("Error creating tale " % r.content)
 
     except Exception as e:
         print("2 Tale status=failed CRITICAL - unexpected exception creating tale")
+        logging.exception("Exception creating tale")
 
 if __name__ == "__main__":
     main()
