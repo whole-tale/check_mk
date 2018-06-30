@@ -1,0 +1,86 @@
+#!/usr/bin/python3
+import argparse
+import docker
+import requests
+import os
+import sys
+import logging
+
+
+# Check_MK script to create and delete an instance of the specified tale
+def main():
+
+    logging.basicConfig(filename='check-tale.log',level=logging.DEBUG)
+    parser = argparse.ArgumentParser()
+
+    # Allow arguments via command line and environment
+    parser.add_argument("-s", "--server", required=False, help="Server URL", default=os.environ.get('GIRDER_URL', None))
+    parser.add_argument("-k", "--key", required=False, help="API key", default=os.environ.get('GIRDER_API_KEY', None))
+    parser.add_argument("-t", "--tale", required=False, help="Tale ID", default=os.environ.get('TALE_ID', None))
+    parser.add_argument("-d", "--dev", required=False, help="Development mode", default=False)
+    args = parser.parse_args()
+
+    apiUrl = "%s/api/v1" % args.server
+
+    # Unless in dev mode, only run this check on the Swarm master
+    if args.dev:
+       print("server=%s key=%s tale=%s" % (args.server, args.key, args.tale))
+    else:
+       client = docker.from_env()
+       attrs = client.swarm.attrs
+       if not attrs.get("ID"):
+           sys.exit(0)
+
+    token = get_token(apiUrl, args.key)
+    if token is not None:
+        create_instance(apiUrl, token, args.tale)
+
+
+# Get a token for the API key
+def get_token(apiUrl, key):
+    try:
+        tokenUrl = "%s/api_key/token?key=%s" % (apiUrl, key)
+        r = requests.post(tokenUrl, headers={'Accept': 'application/json', 'Content-Type': 'application/json'})
+        if r.status_code == requests.codes.ok:
+            body = r.json()
+            return body['authToken']['token']
+        else:
+            print("2 Tale status=%s CRITICAL - error getting token" % r.status_code)
+            logging.error("Error getting token " % r.content)
+
+    except Exception as e:
+        print("2 Tale status=failed CRITICAL - unexpected exception getting token")
+        logging.exception("Exception getting token")
+
+    return None
+
+
+# Create and delete an instance of the specified tale
+def create_instance(apiUrl, token, tale):
+
+    try:
+        postInstanceUrl = "%s/instance?taleId=%s" % (apiUrl, tale)
+        r = requests.post(postInstanceUrl, headers={'Girder-Token': token, 'Content-Type': 'application/json',
+                                                    'Accept': 'application/json'})
+        if r.status_code == requests.codes.ok:
+            body = r.json()
+            instanceId = body['_id']
+
+            deleteInstanceUrl = "%s/instance/%s" % (apiUrl, instanceId)
+            r = requests.delete(deleteInstanceUrl, headers={'Girder-Token': token, 'Accept': 'application/json'})
+            if r.status_code == requests.codes.ok:
+                print("0 Tale status=%s OK - tale successfully created/deleted" % r.status_code )
+            else:
+                print("2 Tale status=%s CRITICAL - error deleting tale" % r.status_code)
+                logging.error("Error deleting tale " % r.content)
+        else:
+            print("2 Tale status=%s CRITICAL - error creating tale" % r.status_code)
+            logging.error("Error creating tale " % r.content)
+
+    except Exception as e:
+        print("2 Tale status=failed CRITICAL - unexpected exception creating tale")
+        logging.exception("Exception creating tale")
+
+if __name__ == "__main__":
+    main()
+
